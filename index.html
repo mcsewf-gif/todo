@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能待办清单 PWA</title>
+  <!-- PWA Manifest 配置 -->
+  <link rel="manifest" id="manifest-placeholder">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/906/906334.png">
+
+  <!-- 引入 Tailwind CSS & SheetJS (Excel导出库) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    /* 拖拽时的样式 */
+    .dragging {
+      opacity: 0.5;
+      scale: 0.98;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+  <div class="max-w-md mx-auto px-4 py-6">
+    <!-- 头部区域 -->
+    <header class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-indigo-600 flex items-center gap-2">
+        <span>📝</span> 待办清单
+      </h1>
+      <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-3 py-1.5 rounded-lg font-medium shadow-sm flex items-center gap-1 transition">
+        <span>📊</span> 导出 Excel
+      </button>
+    </header>
+
+    <!-- 添加新项目卡片 -->
+    <section class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-slate-100">
+      <h2 class="text-sm font-semibold text-slate-500 mb-3">添加新待办</h2>
+      <form id="todo-form" class="space-y-3" onsubmit="addTodo(event)">
+        <input type="text" id="todo-title" placeholder="要做什么事情？" required
+               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <label class="block text-xs text-slate-400 mb-1">到期日期</label>
+            <input type="date" id="todo-due-date" required
+                   class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs text-slate-400 mb-1">完成日期（可选）</label>
+            <input type="date" id="todo-completed-date"
+                   class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition shadow">
+          添加项目
+        </button>
+      </form>
+    </section>
+
+    <!-- 搜索框 -->
+    <section class="mb-4">
+      <div class="relative">
+        <input type="text" id="search-input" oninput="render()" placeholder="🔍 搜索待办事项（单字或关键字）..."
+               class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+      </div>
+    </section>
+
+    <!-- 待办列表 -->
+    <main>
+      <ul id="todo-list" class="space-y-2.5"></ul>
+    </main>
+  </div>
+
+  <script>
+    // 动态生成 Manifest blob 供 PWA 安装使用
+    const manifest = {
+      name: "智能待办清单",
+      short_name: "待办PWA",
+      start_url: "./",
+      display: "standalone",
+      background_color: "#f8fafc",
+      theme_color: "#4f46e5",
+      icons: [{
+        src: "https://cdn-icons-png.flaticon.com/512/906/906334.png",
+        sizes: "512x512",
+        type: "image/png"
+      }]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+    // 数据状态管理
+    let todos = JSON.parse(localStorage.getItem('pwa_todos') || '[]');
+
+    // 初始化日期选择器为当天
+    const getTodayString = () => new Date().toISOString().split('T')[0];
+    document.getElementById('todo-due-date').value = getTodayString();
+
+    // 格式化日期辅助函数
+    function parseDate(dateStr) {
+      if (!dateStr) return null;
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    // 保存到 LocalStorage
+    function save() {
+      localStorage.setItem('pwa_todos', JSON.stringify(todos));
+    }
+
+    // 添加新项目
+    function addTodo(e) {
+      e.preventDefault();
+      const titleInput = document.getElementById('todo-title');
+      const dueDateInput = document.getElementById('todo-due-date');
+      const completedDateInput = document.getElementById('todo-completed-date');
+
+      const newTodo = {
+        id: Date.now().toString(),
+        title: titleInput.value.trim(),
+        dueDate: dueDateInput.value,
+        completedDate: completedDateInput.value || null,
+        completed: false
+      };
+
+      todos.unshift(newTodo); // 新加项目放在顶部
+      save();
+      render();
+
+      titleInput.value = '';
+      dueDateInput.value = getTodayString();
+      completedDateInput.value = '';
+    }
+
+    // 切换状态（点击完成/取消完成）
+    function toggleComplete(id) {
+      const index = todos.findIndex(t => t.id === id);
+      if (index === -1) return;
+
+      const todo = todos[index];
+      todo.completed = !todo.completed;
+
+      if (todo.completed) {
+        // 如果没有填完成日期，默认为点击完成按钮当天
+        if (!todo.completedDate) {
+          todo.completedDate = getTodayString();
+        }
+        // 移至列表最底部
+        todos.splice(index, 1);
+        todos.push(todo);
+      } else {
+        // 取消完成，移回前面
+        todos.splice(index, 1);
+        todos.unshift(todo);
+      }
+
+      save();
+      render();
+    }
+
+    // 删除项目
+    function deleteTodo(id) {
+      todos = todos.filter(t => t.id !== id);
+      save();
+      render();
+    }
+
+    // 计算状态与颜色逻辑
+    function getItemStatus(todo) {
+      if (todo.completed) {
+        return { bgClass: 'bg-slate-100 opacity-60 border-slate-200', textClass: 'text-slate-400', badge: '已完成' };
+      }
+
+      const today = parseDate(getTodayString());
+      const due = parseDate(todo.dueDate);
+      const diffTime = today - due;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) {
+        // 到期日当天：黄色高亮
+        return { 
+          bgClass: 'bg-amber-50 border-amber-300', 
+          textClass: 'text-amber-800', 
+          badge: '今天到期',
+          badgeClass: 'bg-amber-100 text-amber-800'
+        };
+      } else if (diffDays >= 2) {
+        // 逾期 2 天及以上：浅红色高亮
+        return { 
+          bgClass: 'bg-rose-50 border-rose-300', 
+          textClass: 'text-rose-800', 
+          badge: `已逾期 ${diffDays} 天`,
+          badgeClass: 'bg-rose-100 text-rose-800 font-semibold'
+        };
+      } else if (diffDays === 1) {
+        // 逾期 1 天：轻微警示
+        return { 
+          bgClass: 'bg-orange-50 border-orange-200', 
+          textClass: 'text-orange-800', 
+          badge: `已逾期 1 天`,
+          badgeClass: 'bg-orange-100 text-orange-800'
+        };
+      }
+
+      return { 
+        bgClass: 'bg-white border-slate-100', 
+        textClass: 'text-slate-700', 
+        badge: null 
+      };
+    }
+
+    // 渲染视图
+    function render() {
+      const listEl = document.getElementById('todo-list');
+      const searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
+
+      listEl.innerHTML = '';
+
+      // 实时搜索过滤（匹配包含字）
+      const filteredTodos = todos.filter(t => t.title.toLowerCase().includes(searchQuery));
+
+      if (filteredTodos.length === 0) {
+        listEl.innerHTML = `<li class="text-center py-8 text-slate-400 text-sm">暂无匹配的待办事项</li>`;
+        return;
+      }
+
+      filteredTodos.forEach((todo) => {
+        const status = getItemStatus(todo);
+        const li = document.createElement('li');
+        li.dataset.id = todo.id;
+        li.draggable = true;
+        li.className = `p-3 rounded-xl border ${status.bgClass} shadow-sm transition-all flex items-center justify-between gap-3 cursor-move group`;
+
+        li.innerHTML = `
+          <div class="flex items-center gap-3 flex-1 min-w-0">
+            <input type="checkbox" ${todo.completed ? 'checked' : ''} 
+                   onclick="toggleComplete('${todo.id}')"
+                   class="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+            
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium ${todo.completed ? 'line-through text-slate-400' : 'text-slate-800'} break-words">
+                ${escapeHtml(todo.title)}
+              </p>
+              
+              <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-400">
+                <span>到期: ${todo.dueDate}</span>
+                ${todo.completedDate ? `<span>| 完成: ${todo.completedDate}</span>` : ''}
+                ${status.badge ? `<span class="px-1.5 py-0.5 rounded ${status.badgeClass}">${status.badge}</span>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <button onclick="deleteTodo('${todo.id}')" class="text-slate-300 hover:text-rose-500 p-1 rounded transition">
+            🗑️
+          </button>
+        `;
+
+        // 绑定拖拽事件
+        addDragEvents(li);
+        listEl.appendChild(li);
+      });
+    }
+
+    // HTML转义防XSS
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    // 拖拽排序逻辑 (Drag and Drop)
+    let dragSrcId = null;
+
+    function addDragEvents(item) {
+      item.addEventListener('dragstart', (e) => {
+        dragSrcId = item.dataset.id;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+      });
+
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetId = item.dataset.id;
+        if (dragSrcId && dragSrcId !== targetId) {
+          const fromIndex = todos.findIndex(t => t.id === dragSrcId);
+          const toIndex = todos.findIndex(t => t.id === targetId);
+          
+          // 移动元素
+          const [movedItem] = todos.splice(fromIndex, 1);
+          todos.splice(toIndex, 0, movedItem);
+
+          save();
+          render();
+        }
+      });
+    }
+
+    // 导出为 Excel 功能
+    function exportToExcel() {
+      if (todos.length === 0) {
+        alert('当前没有待办事项可导出！');
+        return;
+      }
+
+      const excelData = todos.map((t, index) => {
+        const status = getItemStatus(t);
+        return {
+          "序号": index + 1,
+          "待办事项": t.title,
+          "到期日期": t.dueDate,
+          "完成日期": t.completedDate || '未完成',
+          "状态": t.completed ? '已完成' : (status.badge || '进行中')
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "待办清单");
+
+      // 调整列宽
+      worksheet['!cols'] = [{ wch: 6 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+
+      const dateStr = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(workbook, `待办事项清单_${dateStr}.xlsx`);
+    }
+
+    // PWA Service Worker 注册 (用于离线访问)
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        self.addEventListener('install', e => self.skipWaiting());
+        self.addEventListener('activate', e => self.clients.claim());
+        self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('离线模式'))));
+      `;
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+    }
+
+    // 初始渲染
+    render();
+  </script>
+</body>
+</html>
