@@ -37,8 +37,9 @@
     <!-- Tab 切换导航按钮 -->
     <div class="flex border-b border-slate-200 mb-5 bg-white rounded-xl p-1 shadow-sm">
       <button id="tab-btn-1" onclick="switchTab(1)" 
-              class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50">
-        📋 待办列表
+              class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50 flex items-center justify-center gap-1.5">
+        <span>📋 待办列表</span>
+        <span id="tab-badge" class="hidden bg-rose-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">0</span>
       </button>
       <button id="tab-btn-2" onclick="switchTab(2)" 
               class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800">
@@ -104,14 +105,14 @@
         tab1Content.classList.remove('hidden');
         tab2Content.classList.add('hidden');
         
-        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50";
+        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50 flex items-center justify-center gap-1.5";
         tab2Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800";
       } else {
         tab1Content.classList.add('hidden');
         tab2Content.classList.remove('hidden');
 
         tab2Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50";
-        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800";
+        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1.5";
       }
     }
 
@@ -214,7 +215,7 @@
     // 计算状态与颜色逻辑
     function getItemStatus(todo) {
       if (todo.completed) {
-        return { bgClass: 'bg-slate-100 opacity-60 border-slate-200', textClass: 'text-slate-400', badge: '已完成' };
+        return { bgClass: 'bg-slate-100 opacity-60 border-slate-200', textClass: 'text-slate-400', badge: '已完成', isAlert: false };
       }
 
       const today = parseDate(getTodayString());
@@ -228,7 +229,8 @@
           bgClass: 'bg-amber-50 border-amber-300', 
           textClass: 'text-amber-800', 
           badge: '今天到期',
-          badgeClass: 'bg-amber-100 text-amber-800'
+          badgeClass: 'bg-amber-100 text-amber-800',
+          isAlert: true
         };
       } else if (diffDays >= 2) {
         // 逾期 2 天及以上：浅红色高亮
@@ -236,7 +238,8 @@
           bgClass: 'bg-rose-50 border-rose-300', 
           textClass: 'text-rose-800', 
           badge: `已逾期 ${diffDays} 天`,
-          badgeClass: 'bg-rose-100 text-rose-800 font-semibold'
+          badgeClass: 'bg-rose-100 text-rose-800 font-semibold',
+          isAlert: true
         };
       } else if (diffDays === 1) {
         // 逾期 1 天：轻微警示
@@ -244,15 +247,44 @@
           bgClass: 'bg-orange-50 border-orange-200', 
           textClass: 'text-orange-800', 
           badge: `已逾期 1 天`,
-          badgeClass: 'bg-orange-100 text-orange-800'
+          badgeClass: 'bg-orange-100 text-orange-800',
+          isAlert: true
         };
       }
 
       return { 
         bgClass: 'bg-white border-slate-100', 
         textClass: 'text-slate-700', 
-        badge: null 
+        badge: null,
+        isAlert: false
       };
+    }
+
+    // 统计到期和逾期数量，并更新桌面图标角标与应用内徽章
+    function updateAppBadges() {
+      // 计算未完成的【今天到期】和【逾期】事项总数
+      const alertCount = todos.reduce((acc, todo) => {
+        const status = getItemStatus(todo);
+        return status.isAlert ? acc + 1 : acc;
+      }, 0);
+
+      // 1. 更新内部 Tab 角标
+      const tabBadge = document.getElementById('tab-badge');
+      if (alertCount > 0) {
+        tabBadge.textContent = alertCount;
+        tabBadge.classList.remove('hidden');
+      } else {
+        tabBadge.classList.add('hidden');
+      }
+
+      // 2. 更新 PWA 手机桌面 App 图标角标
+      if ('setAppBadge' in navigator) {
+        if (alertCount > 0) {
+          navigator.setAppBadge(alertCount).catch(() => {});
+        } else {
+          navigator.clearAppBadge().catch(() => {});
+        }
+      }
     }
 
     // 渲染视图
@@ -261,6 +293,9 @@
       const searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
 
       listEl.innerHTML = '';
+
+      // 更新角标状态
+      updateAppBadges();
 
       // 实时搜索过滤（匹配包含字）
       const filteredTodos = todos.filter(t => t.title.toLowerCase().includes(searchQuery));
