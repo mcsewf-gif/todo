@@ -4,9 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>智能待办清单 PWA</title>
+  
   <!-- PWA Manifest 配置 -->
   <link rel="manifest" id="manifest-placeholder">
   <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="待办">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/906/906334.png">
 
   <!-- 引入 Tailwind CSS & SheetJS (Excel导出库) -->
@@ -14,7 +18,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* 拖拽时的样式 */
     .dragging {
       opacity: 0.5;
       scale: 0.98;
@@ -33,6 +36,14 @@
         <span>📊</span> 导出 Excel
       </button>
     </header>
+
+    <!-- iOS / 桌面角标权限提示横幅 -->
+    <div id="badge-permission-banner" class="hidden mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-800">
+      <span>🔔 开启角标权限以在桌面图标显示红点数</span>
+      <button onclick="requestBadgePermission()" class="bg-amber-600 text-white font-medium px-2.5 py-1 rounded-lg shadow-sm hover:bg-amber-700 transition">
+        允许提醒
+      </button>
+    </div>
 
     <!-- Tab 切换导航按钮 -->
     <div class="flex border-b border-slate-200 mb-5 bg-white rounded-xl p-1 shadow-sm">
@@ -117,8 +128,8 @@
 
     // 动态生成 Manifest blob 供 PWA 安装使用
     const manifest = {
-      name: "智能待办清单",
-      short_name: "待办PWA",
+      name: "待办",
+      short_name: "待办",
       start_url: "./",
       display: "standalone",
       background_color: "#f8fafc",
@@ -166,7 +177,7 @@
         completed: false
       };
 
-      todos.unshift(newTodo); // 新加项目放在顶部
+      todos.unshift(newTodo);
       save();
       render();
 
@@ -174,11 +185,10 @@
       dueDateInput.value = getTodayString();
       completedDateInput.value = '';
 
-      // 添加成功后自动跳转回待办列表 Tab
       switchTab(1);
     }
 
-    // 切换状态（点击完成/取消完成）
+    // 切换状态
     function toggleComplete(id) {
       const index = todos.findIndex(t => t.id === id);
       if (index === -1) return;
@@ -187,15 +197,12 @@
       todo.completed = !todo.completed;
 
       if (todo.completed) {
-        // 如果没有填完成日期，默认为点击完成按钮当天
         if (!todo.completedDate) {
           todo.completedDate = getTodayString();
         }
-        // 移至列表最底部
         todos.splice(index, 1);
         todos.push(todo);
       } else {
-        // 取消完成，移回前面
         todos.splice(index, 1);
         todos.unshift(todo);
       }
@@ -223,7 +230,6 @@
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays === 0) {
-        // 到期日当天：黄色高亮
         return { 
           bgClass: 'bg-amber-50 border-amber-300', 
           textClass: 'text-amber-800', 
@@ -232,7 +238,6 @@
           isAlert: true
         };
       } else if (diffDays >= 2) {
-        // 逾期 2 天及以上：浅红色高亮
         return { 
           bgClass: 'bg-rose-50 border-rose-300', 
           textClass: 'text-rose-800', 
@@ -241,7 +246,6 @@
           isAlert: true
         };
       } else if (diffDays === 1) {
-        // 逾期 1 天：轻微警示
         return { 
           bgClass: 'bg-orange-50 border-orange-200', 
           textClass: 'text-orange-800', 
@@ -259,20 +263,47 @@
       };
     }
 
-    // 统计【今天到期】和【逾期】事项数，更新手机桌面 App 图标角标 (App Badge)
-    function updateAppBadge() {
+    // 升级版：设置桌面图标角标（App Badge API）
+    async function updateAppBadge() {
       const alertCount = todos.reduce((acc, todo) => {
         const status = getItemStatus(todo);
         return status.isAlert ? acc + 1 : acc;
       }, 0);
 
-      // 设置手机桌面 App 图标上的红圈数字
-      if ('setAppBadge' in navigator) {
-        if (alertCount > 0) {
-          navigator.setAppBadge(alertCount).catch(() => {});
-        } else {
-          navigator.clearAppBadge().catch(() => {});
+      try {
+        if ('setAppBadge' in navigator) {
+          if (alertCount > 0) {
+            await navigator.setAppBadge(alertCount);
+          } else {
+            await navigator.clearAppBadge();
+          }
+        } else if ('setExperimentalAppBadge' in navigator) {
+          if (alertCount > 0) {
+            await navigator.setExperimentalAppBadge(alertCount);
+          } else {
+            await navigator.clearExperimentalAppBadge();
+          }
         }
+      } catch (err) {
+        console.log('App Badge 设置提示:', err);
+      }
+    }
+
+    // 请求桌面通知与角标权限（iOS / Safari 必须显式触发）
+    async function requestBadgePermission() {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          document.getElementById('badge-permission-banner').classList.add('hidden');
+          updateAppBadge();
+        }
+      }
+    }
+
+    // 检查权限状态
+    function checkPermissionBanner() {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        document.getElementById('badge-permission-banner').classList.remove('hidden');
       }
     }
 
@@ -286,7 +317,7 @@
       // 更新桌面图标角标
       updateAppBadge();
 
-      // 实时搜索过滤（匹配包含字）
+      // 实时搜索过滤
       const filteredTodos = todos.filter(t => t.title.toLowerCase().includes(searchQuery));
 
       if (filteredTodos.length === 0) {
@@ -325,7 +356,6 @@
           </button>
         `;
 
-        // 绑定拖拽事件
         addDragEvents(li);
         listEl.appendChild(li);
       });
@@ -336,7 +366,7 @@
       return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     }
 
-    // 拖拽排序逻辑 (Drag and Drop)
+    // 拖拽排序逻辑
     let dragSrcId = null;
 
     function addDragEvents(item) {
@@ -362,7 +392,6 @@
           const fromIndex = todos.findIndex(t => t.id === dragSrcId);
           const toIndex = todos.findIndex(t => t.id === targetId);
           
-          // 移动元素
           const [movedItem] = todos.splice(fromIndex, 1);
           todos.splice(toIndex, 0, movedItem);
 
@@ -372,7 +401,7 @@
       });
     }
 
-    // 导出为 Excel 功能
+    // 导出 Excel
     function exportToExcel() {
       if (todos.length === 0) {
         alert('当前没有待办事项可导出！');
@@ -394,25 +423,29 @@
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "待办清单");
 
-      // 调整列宽
       worksheet['!cols'] = [{ wch: 6 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
 
       const dateStr = new Date().toISOString().split('T')[0];
       XLSX.writeFile(workbook, `待办事项清单_${dateStr}.xlsx`);
     }
 
-    // PWA Service Worker 注册 (用于离线访问)
+    // 注册 Service Worker (iOS PWA 显示桌面角标的核心依赖)
     if ('serviceWorker' in navigator) {
       const swCode = `
         self.addEventListener('install', e => self.skipWaiting());
         self.addEventListener('activate', e => self.clients.claim());
-        self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('离线模式'))));
+        self.addEventListener('message', e => {
+          if (e.data && e.data.type === 'SET_BADGE') {
+            if (navigator.setAppBadge) navigator.setAppBadge(e.data.count);
+          }
+        });
       `;
       const blob = new Blob([swCode], { type: 'application/javascript' });
       navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
     }
 
-    // 初始渲染
+    // 页面初始化
+    checkPermissionBanner();
     render();
   </script>
 </body>
