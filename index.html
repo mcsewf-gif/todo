@@ -37,9 +37,8 @@
     <!-- Tab 切换导航按钮 -->
     <div class="flex border-b border-slate-200 mb-5 bg-white rounded-xl p-1 shadow-sm">
       <button id="tab-btn-1" onclick="switchTab(1)" 
-              class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50 flex items-center justify-center gap-1.5">
-        <span>📋 待办列表</span>
-        <span id="tab-badge" class="hidden bg-rose-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">0</span>
+              class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50">
+        📋 待办列表
       </button>
       <button id="tab-btn-2" onclick="switchTab(2)" 
               class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800">
@@ -47,7 +46,7 @@
       </button>
     </div>
 
-    <!-- 第一个 Tab 页面：搜索 + 待办列表（对应红圈画出的部分） -->
+    <!-- 第一个 Tab 页面：搜索 + 待办列表 -->
     <div id="tab-content-1" class="space-y-4">
       <!-- 搜索框 -->
       <section>
@@ -63,7 +62,7 @@
       </main>
     </div>
 
-    <!-- 第二个 Tab 页面：添加新待办表单（对应上面的部分） -->
+    <!-- 第二个 Tab 页面：添加新待办表单 -->
     <div id="tab-content-2" class="hidden">
       <section class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-slate-100">
         <h2 class="text-sm font-semibold text-slate-500 mb-3">添加新待办</h2>
@@ -105,14 +104,14 @@
         tab1Content.classList.remove('hidden');
         tab2Content.classList.add('hidden');
         
-        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50 flex items-center justify-center gap-1.5";
+        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50";
         tab2Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800";
       } else {
         tab1Content.classList.add('hidden');
         tab2Content.classList.remove('hidden');
 
         tab2Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50";
-        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1.5";
+        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800";
       }
     }
 
@@ -260,24 +259,14 @@
       };
     }
 
-    // 统计到期和逾期数量，并更新桌面图标角标与应用内徽章
-    function updateAppBadges() {
-      // 计算未完成的【今天到期】和【逾期】事项总数
+    // 统计【今天到期】和【逾期】事项数，更新手机桌面 App 图标角标 (App Badge)
+    function updateAppBadge() {
       const alertCount = todos.reduce((acc, todo) => {
         const status = getItemStatus(todo);
         return status.isAlert ? acc + 1 : acc;
       }, 0);
 
-      // 1. 更新内部 Tab 角标
-      const tabBadge = document.getElementById('tab-badge');
-      if (alertCount > 0) {
-        tabBadge.textContent = alertCount;
-        tabBadge.classList.remove('hidden');
-      } else {
-        tabBadge.classList.add('hidden');
-      }
-
-      // 2. 更新 PWA 手机桌面 App 图标角标
+      // 设置手机桌面 App 图标上的红圈数字
       if ('setAppBadge' in navigator) {
         if (alertCount > 0) {
           navigator.setAppBadge(alertCount).catch(() => {});
@@ -294,8 +283,8 @@
 
       listEl.innerHTML = '';
 
-      // 更新角标状态
-      updateAppBadges();
+      // 更新桌面图标角标
+      updateAppBadge();
 
       // 实时搜索过滤（匹配包含字）
       const filteredTodos = todos.filter(t => t.title.toLowerCase().includes(searchQuery));
@@ -428,4 +417,3 @@
   </script>
 </body>
 </html>
-
