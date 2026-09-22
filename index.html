@@ -25,7 +25,7 @@
 
   <div class="max-w-md mx-auto px-4 py-6">
     <!-- 头部区域 -->
-    <header class="flex justify-between items-center mb-6">
+    <header class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold text-indigo-600 flex items-center gap-2">
         <span>📝</span> 待办清单
       </h1>
@@ -34,47 +34,87 @@
       </button>
     </header>
 
-    <!-- 添加新项目卡片 -->
-    <section class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-slate-100">
-      <h2 class="text-sm font-semibold text-slate-500 mb-3">添加新待办</h2>
-      <form id="todo-form" class="space-y-3" onsubmit="addTodo(event)">
-        <input type="text" id="todo-title" placeholder="要做什么事情？" required
-               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        
-        <div class="flex gap-2">
-          <div class="flex-1">
-            <label class="block text-xs text-slate-400 mb-1">到期日期</label>
-            <input type="date" id="todo-due-date" required
-                   class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-          <div class="flex-1">
-            <label class="block text-xs text-slate-400 mb-1">完成日期（可选）</label>
-            <input type="date" id="todo-completed-date"
-                   class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
+    <!-- Tab 切换导航按钮 -->
+    <div class="flex border-b border-slate-200 mb-5 bg-white rounded-xl p-1 shadow-sm">
+      <button id="tab-btn-1" onclick="switchTab(1)" 
+              class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50">
+        📋 待办列表
+      </button>
+      <button id="tab-btn-2" onclick="switchTab(2)" 
+              class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800">
+        ➕ 添加待办
+      </button>
+    </div>
+
+    <!-- 第一个 Tab 页面：搜索 + 待办列表（对应红圈画出的部分） -->
+    <div id="tab-content-1" class="space-y-4">
+      <!-- 搜索框 -->
+      <section>
+        <div class="relative">
+          <input type="text" id="search-input" oninput="render()" placeholder="🔍 搜索待办事项（单字或关键字）..."
+                 class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
         </div>
+      </section>
 
-        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition shadow">
-          添加项目
-        </button>
-      </form>
-    </section>
+      <!-- 待办列表 -->
+      <main>
+        <ul id="todo-list" class="space-y-2.5"></ul>
+      </main>
+    </div>
 
-    <!-- 搜索框 -->
-    <section class="mb-4">
-      <div class="relative">
-        <input type="text" id="search-input" oninput="render()" placeholder="🔍 搜索待办事项（单字或关键字）..."
-               class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
-      </div>
-    </section>
+    <!-- 第二个 Tab 页面：添加新待办表单（对应上面的部分） -->
+    <div id="tab-content-2" class="hidden">
+      <section class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-slate-100">
+        <h2 class="text-sm font-semibold text-slate-500 mb-3">添加新待办</h2>
+        <form id="todo-form" class="space-y-3" onsubmit="addTodo(event)">
+          <input type="text" id="todo-title" placeholder="要做什么事情？" required
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <label class="block text-xs text-slate-400 mb-1">到期日期</label>
+              <input type="date" id="todo-due-date" required
+                     class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs text-slate-400 mb-1">完成日期（可选）</label>
+              <input type="date" id="todo-completed-date"
+                     class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+          </div>
 
-    <!-- 待办列表 -->
-    <main>
-      <ul id="todo-list" class="space-y-2.5"></ul>
-    </main>
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition shadow">
+            添加项目
+          </button>
+        </form>
+      </section>
+    </div>
+
   </div>
 
   <script>
+    // Tab 切换逻辑
+    function switchTab(tabIndex) {
+      const tab1Content = document.getElementById('tab-content-1');
+      const tab2Content = document.getElementById('tab-content-2');
+      const tab1Btn = document.getElementById('tab-btn-1');
+      const tab2Btn = document.getElementById('tab-btn-2');
+
+      if (tabIndex === 1) {
+        tab1Content.classList.remove('hidden');
+        tab2Content.classList.add('hidden');
+        
+        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50";
+        tab2Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800";
+      } else {
+        tab1Content.classList.add('hidden');
+        tab2Content.classList.remove('hidden');
+
+        tab2Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50";
+        tab1Btn.className = "flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-slate-500 hover:text-slate-800";
+      }
+    }
+
     // 动态生成 Manifest blob 供 PWA 安装使用
     const manifest = {
       name: "智能待办清单",
@@ -133,6 +173,9 @@
       titleInput.value = '';
       dueDateInput.value = getTodayString();
       completedDateInput.value = '';
+
+      // 添加成功后自动跳转回待办列表 Tab
+      switchTab(1);
     }
 
     // 切换状态（点击完成/取消完成）
