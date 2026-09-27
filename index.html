@@ -26,27 +26,27 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
-  <div class="max-w-md mx-auto px-4 py-6">
-    <!-- 头部区域 -->
-    <header class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold text-indigo-600 flex items-center gap-2">
+  <div class="max-w-md mx-auto px-4 py-5">
+    <!-- 头部区域（已调小标题与导出按钮） -->
+    <header class="flex justify-between items-center mb-3">
+      <h1 class="text-lg font-bold text-indigo-600 flex items-center gap-1.5">
         <span>📝</span> 待办清单
       </h1>
-      <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-3 py-1.5 rounded-lg font-medium shadow-sm flex items-center gap-1 transition">
+      <button onclick="exportToExcel()" class="bg-emerald-600/90 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 rounded-md font-normal shadow-sm flex items-center gap-1 transition">
         <span>📊</span> 导出 Excel
       </button>
     </header>
 
     <!-- iOS / 桌面角标权限提示横幅 -->
-    <div id="badge-permission-banner" class="hidden mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-800">
+    <div id="badge-permission-banner" class="hidden mb-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-800">
       <span>🔔 开启角标权限以在桌面图标显示红点数</span>
-      <button onclick="requestBadgePermission()" class="bg-amber-600 text-white font-medium px-2.5 py-1 rounded-lg shadow-sm hover:bg-amber-700 transition">
+      <button onclick="requestBadgePermission()" class="bg-amber-600 text-white font-medium px-2 py-0.5 rounded shadow-sm hover:bg-amber-700 transition">
         允许提醒
       </button>
     </div>
 
     <!-- Tab 切换导航按钮 -->
-    <div class="flex border-b border-slate-200 mb-5 bg-white rounded-xl p-1 shadow-sm">
+    <div class="flex border-b border-slate-200 mb-4 bg-white rounded-xl p-1 shadow-sm">
       <button id="tab-btn-1" onclick="switchTab(1)" 
               class="flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all duration-200 text-indigo-600 bg-indigo-50">
         📋 待办列表
@@ -58,7 +58,7 @@
     </div>
 
     <!-- 第一个 Tab 页面：搜索 + 待办列表 -->
-    <div id="tab-content-1" class="space-y-4">
+    <div id="tab-content-1" class="space-y-3">
       <!-- 搜索框 -->
       <section>
         <div class="relative">
@@ -263,7 +263,7 @@
       };
     }
 
-    // 升级版：设置桌面图标角标（App Badge API）
+    // 设置桌面图标角标（App Badge API）
     async function updateAppBadge() {
       const alertCount = todos.reduce((acc, todo) => {
         const status = getItemStatus(todo);
@@ -289,7 +289,7 @@
       }
     }
 
-    // 请求桌面通知与角标权限（iOS / Safari 必须显式触发）
+    // 请求桌面通知与角标权限
     async function requestBadgePermission() {
       if ('Notification' in window) {
         const permission = await Notification.requestPermission();
@@ -429,7 +429,7 @@
       XLSX.writeFile(workbook, `待办事项清单_${dateStr}.xlsx`);
     }
 
-    // 注册 Service Worker (iOS PWA 显示桌面角标的核心依赖)
+    // 注册 Service Worker
     if ('serviceWorker' in navigator) {
       const swCode = `
         self.addEventListener('install', e => self.skipWaiting());
@@ -450,3 +450,4 @@
   </script>
 </body>
 </html>
+
