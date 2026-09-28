@@ -18,31 +18,31 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* 拖拽时的样式 */
+    /* PC端拖拽时的样式 */
     .dragging {
       opacity: 0.4;
       transform: scale(0.98);
     }
-    /* 手机端拖动时的跟随高亮效果 */
+    /* 手机端触屏拖动手柄时的卡片跟随高亮样式 */
     .touch-dragging {
       opacity: 0.9;
       position: relative;
       z-index: 50;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
       transform: scale(1.02);
       transition: transform 0.05s ease;
     }
-    /* 防止拖拽时选中页面文本 */
+    /* 防止拖拽手柄时误选文字 */
     .no-select {
       user-select: none;
       -webkit-user-select: none;
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen pb-12 no-select">
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
   <div class="max-w-md mx-auto px-4 py-5">
-    <!-- 头部区域（已调小标题与导出按钮） -->
+    <!-- 头部区域 -->
     <header class="flex justify-between items-center mb-3">
       <h1 class="text-lg font-bold text-indigo-600 flex items-center gap-1.5">
         <span>📝</span> 待办清单
@@ -203,7 +203,7 @@
       switchTab(1);
     }
 
-    // 切换状态
+    // 切换完成状态
     function toggleComplete(id) {
       const index = todos.findIndex(t => t.id === id);
       if (index === -1) return;
@@ -345,7 +345,7 @@
         const li = document.createElement('li');
         li.dataset.id = todo.id;
         li.draggable = true;
-        li.className = `p-3 rounded-xl border ${status.bgClass} shadow-sm transition-all flex items-center justify-between gap-2 touch-none select-none`;
+        li.className = `p-3 rounded-xl border ${status.bgClass} shadow-sm transition-all flex items-center justify-between gap-2`;
 
         li.innerHTML = `
           <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -370,15 +370,18 @@
             <button onclick="deleteTodo('${todo.id}')" class="text-slate-300 hover:text-rose-500 p-1.5 rounded transition">
               🗑️
             </button>
-            <div class="drag-handle text-slate-300 cursor-grab active:cursor-grabbing p-1 text-lg">
+            <div class="drag-handle text-slate-300 cursor-grab active:cursor-grabbing p-2 text-lg touch-none no-select">
               ☰
             </div>
           </div>
         `;
 
-        // 绑定PC端拖拽与手机端触屏拖拽事件
+        // 绑定PC端拖拽事件（作用在整个卡片）
         addDragEvents(li);
-        addTouchDragEvents(li);
+
+        // 绑定手机触屏端拖拽事件（仅作用于右侧 ☰ 手柄）
+        const handle = li.querySelector('.drag-handle');
+        addTouchDragEvents(li, handle);
 
         listEl.appendChild(li);
       });
@@ -417,47 +420,47 @@
       });
     }
 
-    // 2. 手机触屏端拖拽排序逻辑 (Mobile Touch Drag & Drop)
-    function addTouchDragEvents(item) {
+    // 2. 手机触屏端拖拽排序逻辑（专门绑定在右侧 ☰ 拖拽手柄上）
+    function addTouchDragEvents(itemLi, handleEl) {
       let touchStartY = 0;
-      let currentLi = null;
+      let isDragging = false;
 
-      item.addEventListener('touchstart', (e) => {
-        currentLi = item;
+      handleEl.addEventListener('touchstart', (e) => {
+        isDragging = true;
         touchStartY = e.touches[0].clientY;
-        currentLi.classList.add('touch-dragging');
+        itemLi.classList.add('touch-dragging');
       }, { passive: true });
 
-      item.addEventListener('touchmove', (e) => {
-        if (!currentLi) return;
+      handleEl.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
         const currentY = e.touches[0].clientY;
         const deltaY = currentY - touchStartY;
-        currentLi.style.transform = `translateY(${deltaY}px) scale(1.02)`;
+        itemLi.style.transform = `translateY(${deltaY}px) scale(1.02)`;
 
-        // 获取当前手指所在的元素位置
-        const elementElementAtTouch = document.elementFromPoint(e.touches[0].clientX, currentY);
-        if (elementElementAtTouch) {
-          const targetLi = elementElementAtTouch.closest('li');
-          if (targetLi && targetLi !== currentLi && targetLi.dataset.id) {
-            reorderTodos(currentLi.dataset.id, targetLi.dataset.id);
-            touchStartY = currentY; // 重置起跳点
+        // 获取手指触碰位置处的待办卡片
+        const elementAtTouch = document.elementFromPoint(e.touches[0].clientX, currentY);
+        if (elementAtTouch) {
+          const targetLi = elementAtTouch.closest('li');
+          if (targetLi && targetLi !== itemLi && targetLi.dataset.id) {
+            reorderTodos(itemLi.dataset.id, targetLi.dataset.id);
+            touchStartY = currentY; // 实时更新参照起点
           }
         }
       }, { passive: true });
 
       const handleTouchEnd = () => {
-        if (currentLi) {
-          currentLi.classList.remove('touch-dragging');
-          currentLi.style.transform = '';
-          currentLi = null;
+        if (isDragging) {
+          isDragging = false;
+          itemLi.classList.remove('touch-dragging');
+          itemLi.style.transform = '';
         }
       };
 
-      item.addEventListener('touchend', handleTouchEnd);
-      item.addEventListener('touchcancel', handleTouchEnd);
+      handleEl.addEventListener('touchend', handleTouchEnd);
+      handleEl.addEventListener('touchcancel', handleTouchEnd);
     }
 
-    // 核心：重排数组并更新
+    // 核心：重排数组并更新保存
     function reorderTodos(fromId, toId) {
       const fromIndex = todos.findIndex(t => t.id === fromId);
       const toIndex = todos.findIndex(t => t.id === toId);
